@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Acompanhamento de Líderes v3.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        header h1 { color: #1F4E78; margin-bottom: 10px; font-size: 28px; }
+        header p { color: #666; font-size: 14px; }
+        .controls { display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s; }
+        .btn-primary { background: #1F4E78; color: white; }
+        .btn-primary:hover { background: #163a5f; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(31,78,120,0.3); }
+        .btn-secondary { background: #4472C4; color: white; }
+        .btn-secondary:hover { background: #3558a0; }
+        .btn-success { background: #70AD47; color: white; }
+        .btn-success:hover { background: #5a8c39; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card h3 { color: #1F4E78; margin-bottom: 15px; font-size: 16px; }
+        .card-content { color: #666; font-size: 14px; line-height: 1.6; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); overflow-y: auto; }
+        .modal-content { background-color: white; margin: 5% auto; padding: 30px; border-radius: 10px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #333; font-weight: 600; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        textarea { resize: vertical; min-height: 80px; }
+        .alert { padding: 15px; margin-bottom: 20px; border-radius: 5px; font-size: 14px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table th, table td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        table th { background: #f8f9fa; font-weight: 600; color: #333; }
+        table tr:hover { background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Sistema de Acompanhamento de Líderes v3.0</h1>
+            <p>Monitore o desempenho dos líderes em relação aos padrões de liderança</p>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="abrirModalAdicionar()">+ Adicionar Líder</button>
+                <button class="btn btn-secondary" onclick="abrirModalReuniao()">+ Registrar Reunião</button>
+                <button class="btn btn-success" onclick="abrirModalImportarCSV()">📥 Importar CSV</button>
+                <button class="btn btn-secondary" onclick="sincronizarGoogle()">🔄 Sincronizar Google Sheets</button>
+            </div>
+        </header>
+
+        <div id="alertas"></div>
+
+        <div class="dashboard">
+            <div class="card">
+                <h3>📈 Estatísticas Gerais</h3>
+                <div class="card-content">
+                    <p><strong>Total de Líderes:</strong> <span id="totalLideres">0</span></p>
+                    <p><strong>Presença Média:</strong> <span id="presencaMedia">0%</span></p>
+                    <p><strong>Reuniões Registradas:</strong> <span id="totalReunioes">0</span></p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>⚠️ Alertas</h3>
+                <div class="card-content" id="alertasBox">
+                    <p>Nenhum alerta no momento</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🎯 Status de Sincronização</h3>
+                <div class="card-content" id="statusSincronizacao">
+                    <p>Não configurado</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📋 Líderes Cadastrados</h3>
+            <div id="listaLideres"></div>
+        </div>
+    </div>
+
+    <!-- Modal Adicionar Líder -->
+    <div id="modalAdicionar" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal('modalAdicionar')">&times;</span>
+            <h2>Adicionar Novo Líder</h2>
+            <form onsubmit="adicionarLider(event)">
+                <div class="form-group">
+                    <label>Nome:</label>
+                    <input type="text" id="nomeLider" required>
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="emailLider" required>
+                </div>
+                <div class="form-group">
+                    <label>Telefone:</label>
+                    <input type="tel" id="telefoneLider" required>
+                </div>
+                <div class="form-group">
+                    <label>Data de Início:</label>
+                    <input type="date" id="dataInicioLider" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Registrar Reunião -->
+    <div id="modalReuniao" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal('modalReuniao')">&times;</span>
+            <h2>Registrar Reunião</h2>
+            <form onsubmit="adicionarReuniao(event)">
+                <div class="form-group">
+                    <label>Data:</label>
+                    <input type="date" id="dataReuniao" required>
+                </div>
+                <div class="form-group">
+                    <label>Líder:</label>
+                    <select id="liderReuniao" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Presente:</label>
+                    <select id="presenteReuniao" required>
+                        <option value="">Selecione...</option>
+                        <option value="sim">Sim</option>
+                        <option value="não">Não</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notas:</label>
+                    <textarea id="notasReuniao"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Importar CSV -->
+    <div id="modalCSV" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal('modalCSV')">&times;</span>
+            <h2>Importar CSV</h2>
+            <div class="form-group">
+                <label>Selecione o arquivo CSV:</label>
+                <input type="file" id="arquivoCSV" accept=".csv" onchange="importarCSV(event)">
+            </div>
+            <p style="color: #666; font-size: 12px; margin-top: 10px;">
+                O arquivo deve conter as colunas: Nome, Email, Telefone, Data Início
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Dados locais
+        let dados = { lideres: [], reunioes: [], avaliacoes: {} };
+        let sheetdbUrl = '';
+
+        // Inicializar
+        window.addEventListener('load', () => {
+            carregarDados();
+            carregarConfiguracao();
+            atualizarDashboard();
+        });
+
+        // Carregar dados do localStorage
+        function carregarDados() {
+            const saved = localStorage.getItem('acompanhamento_dados');
+            if (saved) {
+                dados = JSON.parse(saved);
+            }
+            atualizarSelectLideres();
+            atualizarListaLideres();
+        }
+
+        // Carregar configuração do SheetDB
+        function carregarConfiguracao() {
+            sheetdbUrl = localStorage.getItem('sheetdb_url') || '';
+            if (sheetdbUrl) {
+                document.getElementById('statusSincronizacao').innerHTML = '<p style="color: green;">✅ Conectado ao Google Sheets</p>';
+            } else {
+                document.getElementById('statusSincronizacao').innerHTML = '<p style="color: orange;">⚠️ Não configurado. Cole a URL do SheetDB no console.</p>';
+            }
+        }
+
+        // Salvar dados no localStorage
+        function salvarDados() {
+            localStorage.setItem('acompanhamento_dados', JSON.stringify(dados));
+            atualizarDashboard();
+            if (sheetdbUrl) {
+                enviarParaGoogle();
+            }
+        }
+
+        // Adicionar líder
+        function adicionarLider(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nomeLider').value;
+            const email = document.getElementById('emailLider').value;
+            const telefone = document.getElementById('telefoneLider').value;
+            const dataInicio = document.getElementById('dataInicioLider').value;
+
+            const lider = {
+                id: Date.now(),
+                nome,
+                email,
+                telefone,
+                dataInicio
+            };
+
+            dados.lideres.push(lider);
+            salvarDados();
+            mostrarAlerta('Líder adicionado com sucesso!', 'success');
+            fecharModal('modalAdicionar');
+            document.querySelector('#modalAdicionar form').reset();
+        }
+
+        // Adicionar reunião
+        function adicionarReuniao(e) {
+            e.preventDefault();
+            const data = document.getElementById('dataReuniao').value;
+            const lider = document.getElementById('liderReuniao').value;
+            const presente = document.getElementById('presenteReuniao').value;
+            const notas = document.getElementById('notasReuniao').value;
+
+            const reuniao = {
+                id: Date.now(),
+                data,
+                lider: parseInt(lider),
+                presente,
+                notas
+            };
+
+            dados.reunioes.push(reuniao);
+            salvarDados();
+            mostrarAlerta('Reunião registrada com sucesso!', 'success');
+            fecharModal('modalReuniao');
+            document.querySelector('#modalReuniao form').reset();
+        }
+
+        // Importar CSV
+        function importarCSV(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                complete: (results) => {
+                    let count = 0;
+                    results.data.forEach(row => {
+                        if (row.Nome && row.Email) {
+                            const lider = {
+                                id: Date.now() + Math.random(),
+                                nome: row.Nome.trim(),
+                                email: row.Email.trim(),
+                                telefone: row.Telefone?.trim() || '',
+                                dataInicio: row['Data Início']?.trim() || new Date().toISOString().split('T')[0]
+                            };
+                            dados.lideres.push(lider);
+                            count++;
+                        }
+                    });
+                    salvarDados();
+                    mostrarAlerta(`${count} líderes importados com sucesso!`, 'success');
+                    fecharModal('modalCSV');
+                }
+            });
+        }
+
+        // Sincronizar com Google Sheets
+        function sincronizarGoogle() {
+            if (!sheetdbUrl) {
+                mostrarAlerta('URL do SheetDB não configurada. Cole no console: localStorage.setItem("sheetdb_url", "sua_url_aqui")', 'error');
+                return;
+            }
+            mostrarAlerta('Sincronizando com Google Sheets...', 'info');
+            enviarParaGoogle();
+        }
+
+        // Enviar para Google
+        function enviarParaGoogle() {
+            if (!sheetdbUrl) return;
+            
+            // Enviar líderes
+            fetch(sheetdbUrl + '/Lideres', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados.lideres)
+            }).then(r => r.json()).catch(e => console.log('Erro ao enviar:', e));
+        }
+
+        // Atualizar dashboard
+        function atualizarDashboard() {
+            document.getElementById('totalLideres').textContent = dados.lideres.length;
+            document.getElementById('totalReunioes').textContent = dados.reunioes.length;
+
+            if (dados.reunioes.length > 0) {
+                const presentes = dados.reunioes.filter(r => r.presente === 'sim').length;
+                const presencaMedia = Math.round((presentes / dados.reunioes.length) * 100);
+                document.getElementById('presencaMedia').textContent = presencaMedia + '%';
+            }
+
+            atualizarListaLideres();
+        }
+
+        // Atualizar lista de líderes
+        function atualizarListaLideres() {
+            const container = document.getElementById('listaLideres');
+            if (dados.lideres.length === 0) {
+                container.innerHTML = '<p style="color: #999;">Nenhum líder cadastrado</p>';
+                return;
+            }
+
+            let html = '<table><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Data Início</th><th>Ações</th></tr>';
+            dados.lideres.forEach(lider => {
+                html += `<tr>
+                    <td>${lider.nome}</td>
+                    <td>${lider.email}</td>
+                    <td>${lider.telefone}</td>
+                    <td>${lider.dataInicio}</td>
+                    <td>
+                        <button class="btn btn-danger" onclick="deletarLider(${lider.id})" style="padding: 5px 10px; font-size: 12px;">Deletar</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        // Deletar líder
+        function deletarLider(id) {
+            if (confirm('Tem certeza que deseja deletar este líder?')) {
+                dados.lideres = dados.lideres.filter(l => l.id !== id);
+                salvarDados();
+                mostrarAlerta('Líder deletado com sucesso!', 'success');
+            }
+        }
+
+        // Atualizar select de líderes
+        function atualizarSelectLideres() {
+            const select = document.getElementById('liderReuniao');
+            select.innerHTML = '<option value="">Selecione um líder...</option>';
+            dados.lideres.forEach(lider => {
+                select.innerHTML += `<option value="${lider.id}">${lider.nome}</option>`;
+            });
+        }
+
+        // Modais
+        function abrirModalAdicionar() { document.getElementById('modalAdicionar').style.display = 'block'; }
+        function abrirModalReuniao() { document.getElementById('modalReuniao').style.display = 'block'; }
+        function abrirModalImportarCSV() { document.getElementById('modalCSV').style.display = 'block'; }
+        function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // Alertas
+        function mostrarAlerta(mensagem, tipo) {
+            const container = document.getElementById('alertas');
+            const alerta = document.createElement('div');
+            alerta.className = `alert alert-${tipo}`;
+            alerta.textContent = mensagem;
+            container.appendChild(alerta);
+            setTimeout(() => alerta.remove(), 4000);
+        }
+
+        // Fechar modal ao clicar fora
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+
+        // Instrução para configurar SheetDB
+        console.log('%c📊 SISTEMA DE ACOMPANHAMENTO DE LÍDERES v3.0', 'color: #1F4E78; font-size: 16px; font-weight: bold;');
+        console.log('%cPara configurar Google Sheets, cole no console:', 'color: #666;');
+        console.log('%clocalStorage.setItem("sheetdb_url", "https://sheetdb.io/api/v1/XXXXXXXXXXXXX");', 'color: #4472C4; font-family: monospace;');
+        console.log('%cDepois recarregue a página (F5)', 'color: #666;');
+    </script>
+</body>
+</html>
