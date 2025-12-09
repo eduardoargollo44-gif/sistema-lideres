@@ -293,12 +293,28 @@
         function enviarParaGoogle() {
             if (!sheetdbUrl) return;
             
-            // Enviar líderes
-            fetch(sheetdbUrl + '/Lideres', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados.lideres)
-            }).then(r => r.json()).catch(e => console.log('Erro ao enviar:', e));
+            console.log('Enviando dados para SheetDB...', dados.lideres);
+            
+            // Enviar cada líder individualmente
+            dados.lideres.forEach(lider => {
+                fetch(sheetdbUrl + '/Lideres', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(lider)
+                })
+                .then(r => {
+                    console.log('Resposta do servidor:', r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    console.log('Sucesso ao enviar:', data);
+                    mostrarAlerta('✅ Sincronizado com Google Sheets!', 'success');
+                })
+                .catch(e => {
+                    console.error('Erro ao enviar:', e);
+                    mostrarAlerta('❌ Erro ao sincronizar: ' + e.message, 'error');
+                });
+            });
         }
 
         // Atualizar dashboard
