@@ -297,7 +297,7 @@
             
             // Enviar cada líder individualmente
             dados.lideres.forEach(lider => {
-                fetch(sheetdbUrl + '/Lideres', {
+                fetch(sheetdbUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(lider)
